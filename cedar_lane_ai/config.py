@@ -19,9 +19,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # LLM Settings
-    openai_api_key: str = Field(default="", description="OpenAI API key for LLM tool calling")
-    openai_model: str = Field(default="gpt-4o-mini", description="OpenAI model name")
+    # LLM Settings (Google Gemini)
+    gemini_api_key: str = Field(
+        default="",
+        description="Google Gemini API key for LLM tool calling",
+    )
+    gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        description="Gemini model name",
+    )
 
     # Google Integrations
     use_mock_integrations: bool = Field(
