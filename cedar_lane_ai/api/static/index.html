@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cedar Lane Auto Detailing — AI Receptionist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="brand">
+        <div class="brand-icon">✨</div>
+        <div>
+          <h1>Cedar Lane Auto Detailing</h1>
+          <p class="subtitle">Autonomous AI Receptionist & Shop Orchestrator</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="badge badge-hours">
+          <span class="status-dot"></span>
+          Mon–Sat: 8:00 AM – 6:00 PM | Sun: Closed
+        </div>
+        <div class="badge badge-sync">
+          <span class="sync-dot"></span>
+          Two-Way Live Sync: Calendar & Sheets
+        </div>
+        <button id="btn-seed-demo" class="btn btn-demo">⚡ Seed Conflict Demo</button>
+        <button id="btn-reset" class="btn btn-secondary">↺ Reset</button>
+      </div>
+    </header>
+
+    <!-- Main Container: Chat + Activity Monitor -->
+    <main class="main-content">
+      <!-- Left: Chat Panel -->
+      <section class="panel chat-panel">
+        <div class="panel-header">
+          <h2>Receptionist Chat Session</h2>
+          <div class="caller-id-wrapper">
+            <label for="caller-phone">Simulated Caller Phone:</label>
+            <input type="text" id="caller-phone" value="+1 (555) 234-5678" placeholder="Caller phone">
+          </div>
+        </div>
+
+        <!-- Quick Scenarios -->
+        <div class="scenario-chips">
+          <span class="chip-label">Quick Prompts:</span>
+          <button class="chip" data-prompt="Can I book an Interior Detail for Thursday October 15th at 3:30 PM?">
+            ⚠️ Thursday 3:30 PM (Conflict Test)
+          </button>
+          <button class="chip" data-prompt="Can you book Jane Doe for an Express Wash & Vac on Friday October 16th at 10:00 AM for a Honda Civic Sedan?">
+            📅 Book Express Wash
+          </button>
+          <button class="chip" data-prompt="What are your prices and how should I prepare my car before dropping it off?">
+            ℹ️ Pricing & Prep Guidelines
+          </button>
+          <button class="chip" data-prompt="Hi, I have an appointment today and I'm running about 10 minutes late.">
+            ⏱️ Running 10 Mins Late
+          </button>
+          <button class="chip" data-prompt="I have an incorrect charge of $50 on my bill from last Friday that I want refunded!">
+            🚨 Disputed Charge Escalation
+          </button>
+        </div>
+
+        <!-- Chat Stream -->
+        <div class="chat-messages" id="chat-messages">
+          <div class="message assistant-msg">
+            <div class="msg-avatar">🤖</div>
+            <div class="msg-content">
+              <p>Hello! Welcome to <strong>Cedar Lane Auto Detailing</strong>. I'm your AI Receptionist. How can I assist you today? I can check open appointment slots, book a detail, answer prep questions, or reschedule an existing service.</p>
+              <span class="msg-timestamp">Just now</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat Input -->
+        <form class="chat-input-bar" id="chat-form">
+          <input type="text" id="chat-input" placeholder="Type a message or inquiry..." autocomplete="off">
+          <button type="submit" id="btn-send" class="btn btn-primary">
+            <span>Send</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </form>
+      </section>
+
+      <!-- Right: Real-time Activity Sidebar -->
+      <section class="panel monitor-panel">
+        <div class="panel-header monitor-header">
+          <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="tab-tools">⚡ Live Tool Calls</button>
+            <button class="tab-btn" data-tab="tab-calendar">📅 Calendar State</button>
+            <button class="tab-btn" data-tab="tab-sheets">📊 Google Sheets Sync</button>
+          </div>
+          <div class="date-picker-wrap">
+            <label for="calendar-date">Date:</label>
+            <input type="date" id="calendar-date" value="2026-10-15">
+          </div>
+        </div>
+
+        <!-- Tab 1: Live Tool Execution Stream -->
+        <div class="tab-content active" id="tab-tools">
+          <div class="tools-stream" id="tools-stream">
+            <div class="empty-state">
+              <span class="empty-icon">⚡</span>
+              <p>No tools executed yet. Interact with the receptionist to observe real-time tool calls.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Calendar Schedule -->
+        <div class="tab-content" id="tab-calendar">
+          <div class="calendar-summary" id="calendar-summary">
+            <h3>Scheduled Appointments (<span id="calendar-date-label">2026-10-15</span>)</h3>
+            <div class="appointment-cards" id="appointment-cards">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Sheets Sync -->
+        <div class="tab-content" id="tab-sheets">
+          <div class="sheets-view">
+            <div class="sheets-section">
+              <div class="sheets-section-header">
+                <h3>Google Sheets: <code>Contacts</code> Directory</h3>
+                <span class="count-tag" id="contacts-count">0 contacts</span>
+              </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Phone</th>
+                      <th>Customer Name</th>
+                      <th>Vehicle</th>
+                      <th>Bookings</th>
+                      <th>Last Contact</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contacts-table-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="sheets-section">
+              <div class="sheets-section-header">
+                <h3>Google Sheets: <code>Call Logs</code> Audit Trail</h3>
+                <span class="count-tag" id="logs-count">0 entries</span>
+              </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Caller</th>
+                      <th>Intent</th>
+                      <th>Outcome</th>
+                      <th>Follow-Up?</th>
+                      <th>Summary</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logs-table-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
