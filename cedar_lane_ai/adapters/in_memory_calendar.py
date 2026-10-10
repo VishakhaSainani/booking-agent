@@ -178,10 +178,15 @@ class InMemoryCalendarAdapter(CalendarAdapter):
     ) -> Appointment | None:
         """Find active appointment matching customer phone."""
         clean_target = "".join(filter(str.isdigit, phone))
+        if len(clean_target) == 11 and clean_target.startswith("1"):
+            clean_target = clean_target[1:]
+
         for apt in self._events.values():
             if apt.is_cancelled:
                 continue
             clean_apt_phone = "".join(filter(str.isdigit, apt.phone_number))
+            if len(clean_apt_phone) == 11 and clean_apt_phone.startswith("1"):
+                clean_apt_phone = clean_apt_phone[1:]
             matches = clean_target and (
                 clean_target in clean_apt_phone or clean_apt_phone in clean_target
             )

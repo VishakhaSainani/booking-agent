@@ -6,16 +6,20 @@ import logging
 
 from cedar_lane_ai.adapters.calendar_base import CalendarAdapter
 from cedar_lane_ai.adapters.google_calendar import GoogleCalendarAdapter
+from cedar_lane_ai.adapters.google_sheets import GoogleSheetsAdapter
 from cedar_lane_ai.adapters.in_memory_calendar import (
     InMemoryCalendarAdapter,
     parse_date_string,
     parse_time_string,
 )
+from cedar_lane_ai.adapters.in_memory_sheets import InMemorySheetsAdapter, normalize_phone
+from cedar_lane_ai.adapters.sheets_base import SheetsAdapter
 from cedar_lane_ai.config import settings
 
 logger = logging.getLogger(__name__)
 
 _CALENDAR_SINGLETON: CalendarAdapter | None = None
+_SHEETS_SINGLETON: SheetsAdapter | None = None
 
 
 def get_calendar_adapter(force_fresh: bool = False) -> CalendarAdapter:
@@ -44,11 +48,42 @@ def get_calendar_adapter(force_fresh: bool = False) -> CalendarAdapter:
         return _CALENDAR_SINGLETON
 
 
+def get_sheets_adapter(force_fresh: bool = False) -> SheetsAdapter:
+    """Return configured sheets adapter (Mock or Google Sheets)."""
+    global _SHEETS_SINGLETON
+
+    if _SHEETS_SINGLETON is not None and not force_fresh:
+        return _SHEETS_SINGLETON
+
+    if settings.use_mock_integrations:
+        logger.info("Using InMemorySheetsAdapter (USE_MOCK_INTEGRATIONS is True)")
+        _SHEETS_SINGLETON = InMemorySheetsAdapter()
+        return _SHEETS_SINGLETON
+
+    try:
+        logger.info("Attempting to initialize GoogleSheetsAdapter...")
+        _SHEETS_SINGLETON = GoogleSheetsAdapter()
+        return _SHEETS_SINGLETON
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to initialize GoogleSheetsAdapter (%s). "
+            "Falling back to InMemorySheetsAdapter.",
+            exc,
+        )
+        _SHEETS_SINGLETON = InMemorySheetsAdapter()
+        return _SHEETS_SINGLETON
+
+
 __all__ = [
     "CalendarAdapter",
     "GoogleCalendarAdapter",
+    "GoogleSheetsAdapter",
     "InMemoryCalendarAdapter",
+    "InMemorySheetsAdapter",
+    "SheetsAdapter",
     "get_calendar_adapter",
+    "get_sheets_adapter",
+    "normalize_phone",
     "parse_date_string",
     "parse_time_string",
 ]
