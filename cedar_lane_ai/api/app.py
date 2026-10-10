@@ -17,6 +17,7 @@ from cedar_lane_ai.adapters import (
     get_calendar_adapter,
     get_sheets_adapter,
 )
+from cedar_lane_ai.api.vapi import vapi_router
 from cedar_lane_ai.domain import ServiceType
 from cedar_lane_ai.services import ReceptionistAgent
 
@@ -25,6 +26,8 @@ app = FastAPI(
     description="Autonomous AI Receptionist with two-way Calendar and Sheets synchronization",
     version="0.1.0",
 )
+
+app.include_router(vapi_router)
 
 app.add_middleware(
     CORSMiddleware,
