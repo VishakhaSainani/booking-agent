@@ -20,11 +20,15 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
 
+# Load PORT from .env or default to 8008
+PORT=$(grep "^PORT=" .env | cut -d '=' -f2 | tr -d ' ' || echo "8008")
+PORT="${PORT:-8008}"
+
 echo "========================================================================"
 echo "✨ Starting Cedar Lane Auto Detailing AI Receptionist Server..."
-echo "📍 Web Dashboard & Chat: http://localhost:8000"
-echo "📡 Vapi Webhook Endpoint: http://localhost:8000/api/vapi/webhook"
-echo "🛠️ Assistant Blueprint:   http://localhost:8000/api/vapi/assistant-config"
+echo "📍 Web Dashboard & Chat: http://localhost:$PORT"
+echo "📡 Vapi Webhook Endpoint: http://localhost:$PORT/api/vapi/webhook"
+echo "🛠️ Assistant Blueprint:   http://localhost:$PORT/api/vapi/assistant-config"
 echo "========================================================================"
 
-exec uvicorn cedar_lane_ai.api.app:app --host 0.0.0.0 --port 8000 --reload
+exec uvicorn cedar_lane_ai.api.app:app --host 0.0.0.0 --port "$PORT" --reload
