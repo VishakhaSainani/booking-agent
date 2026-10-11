@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Vapi Web Voice SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.min.js"></script>
 </head>
 <body>
   <div class="app-layout">
@@ -27,8 +29,12 @@
         </div>
         <div class="badge badge-sync">
           <span class="sync-dot"></span>
-          Two-Way Live Sync: Calendar & Sheets
+          Two-Way Live Sync
         </div>
+        <button id="btn-voice-call" class="btn btn-voice">
+          <span class="voice-pulse"></span>
+          <span id="voice-btn-text">🎙️ Call Voice AI</span>
+        </button>
         <button id="btn-seed-demo" class="btn btn-demo">⚡ Seed Conflict Demo</button>
         <button id="btn-reset" class="btn btn-secondary">↺ Reset</button>
       </div>
@@ -43,6 +49,28 @@
           <div class="caller-id-wrapper">
             <label for="caller-phone">Simulated Caller Phone:</label>
             <input type="text" id="caller-phone" value="+1 (555) 234-5678" placeholder="Caller phone">
+          </div>
+        </div>
+
+        <!-- Voice Call Active Banner (Visible during phone/web call) -->
+        <div class="voice-call-banner hidden" id="voice-call-banner">
+          <div class="voice-banner-left">
+            <div class="waveform">
+              <span class="bar bar-1"></span>
+              <span class="bar bar-2"></span>
+              <span class="bar bar-3"></span>
+              <span class="bar bar-4"></span>
+              <span class="bar bar-5"></span>
+            </div>
+            <div>
+              <div class="voice-status-title" id="voice-status-title">Live Voice Call Active</div>
+              <div class="voice-status-sub" id="voice-status-sub">Listening... Speak into your microphone</div>
+            </div>
+          </div>
+          <div class="voice-banner-right">
+            <span class="call-timer" id="call-timer">00:00</span>
+            <button id="btn-mute-voice-call" class="btn btn-icon" title="Mute Microphone">🎤</button>
+            <button id="btn-end-voice-call" class="btn btn-danger">End Call 🔴</button>
           </div>
         </div>
 

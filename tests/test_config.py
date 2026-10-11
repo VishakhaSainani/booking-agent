@@ -6,6 +6,7 @@ from cedar_lane_ai.config import Settings
 def test_default_settings() -> None:
     """Verify default configuration values."""
     cfg = Settings(
+        _env_file=None,
         gemini_api_key="mock-key",
         use_mock_integrations=True,
     )

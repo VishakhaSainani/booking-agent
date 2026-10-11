@@ -5,6 +5,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const callerPhoneInput = document.getElementById('caller-phone');
   const btnSeedDemo = document.getElementById('btn-seed-demo');
   const btnReset = document.getElementById('btn-reset');
+  const btnVoiceCall = document.getElementById('btn-voice-call');
+  const voiceBtnText = document.getElementById('voice-btn-text');
+  const voiceCallBanner = document.getElementById('voice-call-banner');
+  const voiceStatusTitle = document.getElementById('voice-status-title');
+  const voiceStatusSub = document.getElementById('voice-status-sub');
+  const callTimer = document.getElementById('call-timer');
+  const btnMuteVoiceCall = document.getElementById('btn-mute-voice-call');
+  const btnEndVoiceCall = document.getElementById('btn-end-voice-call');
+
   const calendarDateInput = document.getElementById('calendar-date');
   const calendarDateLabel = document.getElementById('calendar-date-label');
   const appointmentCards = document.getElementById('appointment-cards');
@@ -16,6 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabButtons = document.querySelectorAll('.tab-btn');
 
   let conversationHistory = [];
+  let vapiInstance = null;
+  let isCallActive = false;
+  let isMuted = false;
+  let callTimerInterval = null;
+  let callSeconds = 0;
+  let vapiConfig = { publicKey: '', assistantId: '', hasConfig: false };
 
   // Tab switching
   tabButtons.forEach(btn => {
@@ -234,6 +249,149 @@ document.addEventListener('DOMContentLoaded', () => {
 
   calendarDateInput.addEventListener('change', refreshState);
 
+  // ============================================================================
+  // Vapi Voice Integration (Phase 2)
+  // ============================================================================
+
+  async function initVapiConfig() {
+    try {
+      const res = await fetch('/api/vapi/web-config');
+      if (res.ok) {
+        vapiConfig = await res.json();
+        if (vapiConfig.hasConfig) {
+          console.log('✅ Vapi Web Call configuration loaded.');
+        } else {
+          console.log('ℹ️ Vapi Public Key / Assistant ID not yet configured in .env.');
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch Vapi config:', err);
+    }
+  }
+
+  function startCallTimer() {
+    callSeconds = 0;
+    callTimer.textContent = '00:00';
+    if (callTimerInterval) clearInterval(callTimerInterval);
+    callTimerInterval = setInterval(() => {
+      callSeconds++;
+      const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+      const secs = String(callSeconds % 60).padStart(2, '0');
+      callTimer.textContent = `${mins}:${secs}`;
+    }, 1000);
+  }
+
+  function stopCallTimer() {
+    if (callTimerInterval) {
+      clearInterval(callTimerInterval);
+      callTimerInterval = null;
+    }
+    callSeconds = 0;
+  }
+
+  function setupVapiClient() {
+    if (vapiInstance) return vapiInstance;
+
+    // Support window.vapi or window.Vapi
+    const VapiClass = window.Vapi || window.vapi?.default || window.vapi;
+    if (!VapiClass) {
+      console.error('Vapi Web SDK not loaded from CDN.');
+      return null;
+    }
+
+    vapiInstance = new VapiClass(vapiConfig.publicKey);
+
+    // Vapi Event Listeners
+    vapiInstance.on('call-start', () => {
+      isCallActive = true;
+      btnVoiceCall.classList.add('active');
+      voiceBtnText.textContent = '🔴 End Voice Call';
+      voiceCallBanner.classList.remove('hidden');
+      voiceStatusTitle.textContent = 'Live Voice Call Active';
+      voiceStatusSub.textContent = 'Listening... Speak into your microphone';
+      startCallTimer();
+      appendMessage('assistant', '🎙️ Voice call connected with Cedar Lane AI Receptionist.');
+    });
+
+    vapiInstance.on('speech-start', () => {
+      voiceStatusSub.textContent = 'Caller Speaking...';
+    });
+
+    vapiInstance.on('speech-end', () => {
+      voiceStatusSub.textContent = 'AI Thinking & Responding...';
+    });
+
+    vapiInstance.on('message', (message) => {
+      if (message.type === 'transcript') {
+        const text = message.transcript;
+        if (text && message.transcriptType === 'final') {
+          appendMessage(message.role === 'user' ? 'user' : 'assistant', text);
+        }
+      }
+    });
+
+    vapiInstance.on('call-end', () => {
+      isCallActive = false;
+      btnVoiceCall.classList.remove('active');
+      voiceBtnText.textContent = '🎙️ Call Voice AI';
+      voiceCallBanner.classList.add('hidden');
+      stopCallTimer();
+      appendMessage('assistant', '📞 Call ended. Synchronizing call report to Google Sheets...');
+      setTimeout(refreshState, 1500);
+    });
+
+    vapiInstance.on('error', (err) => {
+      console.error('Vapi Voice Error:', err);
+      voiceStatusSub.textContent = `Error: ${err.message || 'Call error'}`;
+    });
+
+    return vapiInstance;
+  }
+
+  async function handleVoiceCallClick() {
+    if (!vapiConfig.hasConfig) {
+      alert(
+        'VAPI_PUBLIC_KEY and VAPI_ASSISTANT_ID are required for in-browser voice calls.\n' +
+        'Please check your .env file or use phone dialing.'
+      );
+      return;
+    }
+
+    const client = setupVapiClient();
+    if (!client) {
+      alert('Could not initialize Vapi Web SDK. Please check your network connection.');
+      return;
+    }
+
+    if (isCallActive) {
+      client.stop();
+    } else {
+      voiceStatusSub.textContent = 'Connecting to Cedar Lane Voice Receptionist...';
+      voiceCallBanner.classList.remove('hidden');
+      try {
+        await client.start(vapiConfig.assistantId);
+      } catch (err) {
+        console.error('Failed to start Vapi call:', err);
+        voiceCallBanner.classList.add('hidden');
+        alert('Microphone access or connection error: ' + err.message);
+      }
+    }
+  }
+
+  btnVoiceCall.addEventListener('click', handleVoiceCallClick);
+  btnEndVoiceCall.addEventListener('click', () => {
+    if (vapiInstance && isCallActive) vapiInstance.stop();
+  });
+
+  btnMuteVoiceCall.addEventListener('click', () => {
+    if (!vapiInstance || !isCallActive) return;
+    isMuted = !isMuted;
+    vapiInstance.setMuted(isMuted);
+    btnMuteVoiceCall.textContent = isMuted ? '🔇' : '🎤';
+    btnMuteVoiceCall.title = isMuted ? 'Unmute Microphone' : 'Mute Microphone';
+  });
+
   // Initial load
+  initVapiConfig();
   refreshState();
 });

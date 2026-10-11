@@ -153,6 +153,50 @@ body {
   border-color: var(--accent-primary);
 }
 
+.btn-voice {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+.btn-voice:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+.btn-voice.active {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.4);
+}
+
+.voice-pulse {
+  width: 8px;
+  height: 8px;
+  background-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+
+.btn-danger {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+.btn-danger:hover {
+  background: rgba(244, 63, 94, 0.35);
+  border-color: #f43f5e;
+}
+
+.btn-icon {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 12px;
+}
+.btn-icon:hover { background: var(--bg-elevated); }
+
 .btn-secondary {
   background: var(--bg-surface);
   color: var(--text-secondary);
@@ -218,6 +262,86 @@ body {
   outline: none;
 }
 .caller-id-wrapper input:focus { border-color: var(--accent-primary); }
+
+.hidden { display: none !important; }
+
+/* Voice Call Active Banner */
+.voice-call-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(6, 182, 212, 0.15));
+  border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: slideDown 0.25s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.voice-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.voice-status-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #34d399;
+}
+
+.voice-status-sub {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.voice-banner-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.call-timer {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* Audio Waveform Animation */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.waveform .bar {
+  width: 4px;
+  height: 6px;
+  background-color: #34d399;
+  border-radius: 2px;
+  animation: wave 1.2s ease-in-out infinite alternate;
+}
+
+.waveform .bar-1 { animation-delay: 0.1s; }
+.waveform .bar-2 { animation-delay: 0.3s; }
+.waveform .bar-3 { animation-delay: 0.5s; }
+.waveform .bar-4 { animation-delay: 0.2s; }
+.waveform .bar-5 { animation-delay: 0.4s; }
+
+@keyframes wave {
+  0% { height: 6px; }
+  100% { height: 22px; }
+}
 
 .scenario-chips {
   padding: 10px 16px;

@@ -121,9 +121,25 @@ async def vapi_webhook(payload: VapiWebhookPayload) -> dict[str, Any]:
     return {"status": "ignored", "event_type": event_type}
 
 
+@vapi_router.get("/web-config")
+async def get_vapi_web_config() -> dict[str, Any]:
+    """Return public configuration required for in-browser Vapi voice calls."""
+    from cedar_lane_ai.config import settings
+
+    return {
+        "publicKey": settings.vapi_public_key,
+        "assistantId": settings.vapi_assistant_id,
+        "hasConfig": bool(settings.vapi_public_key and settings.vapi_assistant_id),
+    }
+
+
 @vapi_router.get("/assistant-config")
-async def get_vapi_assistant_config() -> dict[str, Any]:
+async def get_vapi_assistant_config(server_url: str | None = None) -> dict[str, Any]:
     """Return tuned Vapi Assistant JSON blueprint adhering to <1.2s latency knobs."""
+    from cedar_lane_ai.config import settings
+
+    callback_url = server_url or settings.webhook_url or "/api/vapi/webhook"
+
     # Convert Gemini schema to Vapi function tool definitions
     vapi_tools = [
         {
@@ -133,7 +149,7 @@ async def get_vapi_assistant_config() -> dict[str, Any]:
                 "description": schema["description"],
                 "parameters": schema["parameters"],
             },
-            "server": {"url": "/api/vapi/webhook"},
+            "server": {"url": callback_url},
         }
         for schema in GEMINI_TOOLS_SCHEMA
     ]

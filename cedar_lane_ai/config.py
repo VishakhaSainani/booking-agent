@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     # Vapi Settings (Phase 2)
     vapi_api_key: str = Field(default="", description="Vapi API key for voice webhook")
     vapi_phone_number_id: str = Field(default="", description="Vapi phone number ID")
+    vapi_public_key: str = Field(default="", description="Vapi public key for web voice calls")
+    vapi_assistant_id: str = Field(default="", description="Vapi assistant ID")
+    webhook_url: str = Field(
+        default="",
+        description="Public webhook URL for Vapi server tool execution",
+    )
 
 
 # Global singleton instance for settings
