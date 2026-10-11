@@ -137,23 +137,38 @@ Follow this exact sequence to record the Phase 1 submission demo:
 
 ### 🎙️ Video 2 Walkthrough: Phase 2 Real-Time Voice Integration (Vapi)
 
-1. **Expose Local Server**:
+You can test and record the voice demo in **two ways**:
+
+#### Option A: Direct In-Browser Voice Calling (Instant & Easiest)
+1. **Launch the Server**:
    ```bash
-   ngrok http 8000
+   ./start.sh
    ```
-2. **Inspect Assistant Blueprint**:
-   Visit `http://localhost:8000/api/vapi/assistant-config` to view the pre-tuned sub-1.2s voice configuration.
-3. **Vapi Dashboard Setup**:
-   - Set **Server URL** to `https://<your-ngrok-domain>/api/vapi/webhook`.
-   - Transcriber: Deepgram `nova-2` with `endpointing: 280ms`.
-   - Voice: Cartesia `sonic-english`.
-   - Silence Timeout: `0.5s`.
-   - Import the tools schema provided by `/api/vapi/assistant-config`.
-4. **Demonstrate Phone Call**:
-   - Place a voice call to the assigned Vapi phone number.
-   - Ask for pricing or availability.
-   - Complete a booking over the phone.
-   - Observe live sync in Google Calendar and the end-of-call report logged to Google Sheets upon hanging up.
+2. **Open Dashboard**: Go to `http://localhost:8008`.
+3. **Start Voice Call**:
+   - In the top header, click **"🎙️ Call Voice AI"**.
+   - Your browser will connect directly to the Cedar Lane Voice Receptionist using Vapi's Web SDK.
+   - Speak naturally into your microphone:
+     > *"Hello, what time do you open tomorrow and how much is an Express Wash for an SUV?"*
+   - Observe the live audio waveform and real-time transcript streaming.
+   - Hang up by clicking **"End Call 🔴"**.
+   - Observe the call report immediately updating in the **Google Sheets Sync** tab!
+
+#### Option B: Phone Call via Public Webhook Tunnel
+1. **Start the Public Tunnel**:
+   ```bash
+   ./scripts/tunnel.sh
+   ```
+   *(Or run `ngrok http 8008` and copy the public HTTPS forwarding URL).*
+2. **Synchronize Assistant on Vapi**:
+   ```bash
+   python scripts/setup_vapi.py --webhook-url https://your-tunnel.ngrok-free.app/api/vapi/webhook
+   ```
+3. **Dial Your Vapi Phone Number**:
+   - Call the phone number assigned in your Vapi dashboard.
+   - Converse with the AI Receptionist over cellular audio.
+   - Book an appointment or test slot conflicts.
+   - Observe live webhook execution and end-of-call audit logging to Google Sheets.
 
 ---
 
