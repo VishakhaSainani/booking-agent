@@ -193,13 +193,37 @@
     });
     document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => sendMessage(c.dataset.text)));
 
-    function startNewCall() {
-      sessionId = crypto.randomUUID(); messagesList.innerHTML = ""; actionsList.innerHTML = "";
-      if (actionsEmpty) { actionsEmpty.style.display = "block"; actionsList.appendChild(actionsEmpty); }
-      appendMessage("receptionist", GREETING);
-      chatInput.value = ""; chatInput.style.height = "auto"; chatInput.focus();
+    function getUUID() {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+      return "sess-" + Math.random().toString(36).slice(2, 11) + "-" + Date.now();
     }
-    document.getElementById("btn-new-call").addEventListener("click", startNewCall);
+
+    function startNewCall() {
+      sessionId = getUUID();
+      messagesList.innerHTML = "";
+      actionsList.innerHTML = '<div class="actions-empty">Calendar and Sheet actions show up here as the agent takes them.</div>';
+
+      // Subtle visual timestamp of new call session
+      const sysTag = document.createElement("div");
+      sysTag.style.textAlign = "center";
+      sysTag.style.fontSize = "0.75rem";
+      sysTag.style.color = "var(--muted)";
+      sysTag.style.margin = "4px 0";
+      sysTag.textContent = `— Call started (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}) —`;
+      messagesList.appendChild(sysTag);
+
+      appendMessage("receptionist", GREETING);
+      chatInput.value = "";
+      chatInput.style.height = "auto";
+      chatInput.focus();
+
+      // Button feedback flash
+      btnNewCall.textContent = "Started ✓";
+      setTimeout(() => { btnNewCall.textContent = "New call"; }, 700);
+    }
+    btnNewCall.addEventListener("click", startNewCall);
     startNewCall();
   </script>
 </body>
