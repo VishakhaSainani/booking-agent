@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -201,12 +202,64 @@ class Appointment(BaseModel):
 class Contact(BaseModel):
     """Customer contact record for Google Sheets 'Contacts' tab."""
 
-    phone_number: str = Field(..., description="Primary key / identifier")
-    customer_name: str
-    vehicle_type: str
-    total_bookings: int = 1
-    last_contact_date: str
-    notes: str = ""
+    contact_id: str = Field(default="", description="Stable internal identifier (e.g. con_001)")
+    name: str = Field(default="", description="Caller's full name")
+    phone: str = Field(..., description="Normalized phone number; lookup key")
+    email: str = Field(default="", description="Optional customer email address")
+    notes: str = Field(default="", description="Useful caller preferences or vehicle info")
+    created_at: str = Field(default="", description="First contact ISO timestamp")
+    updated_at: str = Field(default="", description="Last updated ISO timestamp")
+    last_call_at: str = Field(default="", description="Latest interaction ISO timestamp")
+    vehicle_type: str = Field(default="", description="Primary customer vehicle type")
+    total_bookings: int = Field(default=0, description="Cumulative bookings recorded")
+
+    @classmethod
+    def from_compat(cls, **data: Any) -> Contact:
+        """Create instance handling legacy argument names."""
+        phone = data.get("phone") or data.get("phone_number") or ""
+        name = data.get("name") or data.get("customer_name") or ""
+        last_call = data.get("last_call_at") or data.get("last_contact_date") or ""
+        return cls(
+            contact_id=data.get("contact_id") or "",
+            name=name,
+            phone=phone,
+            email=data.get("email") or "",
+            notes=data.get("notes") or "",
+            created_at=data.get("created_at") or last_call or "",
+            updated_at=data.get("updated_at") or last_call or "",
+            last_call_at=last_call,
+            vehicle_type=data.get("vehicle_type") or "",
+            total_bookings=int(data.get("total_bookings") or (1 if data.get("is_booking") else 0)),
+        )
+
+    def __init__(self, **data: Any) -> None:
+        # Support legacy aliases if passed directly
+        if "phone_number" in data and "phone" not in data:
+            data["phone"] = data.pop("phone_number")
+        if "customer_name" in data and "name" not in data:
+            data["name"] = data.pop("customer_name")
+        if "last_contact_date" in data and "last_call_at" not in data:
+            data["last_call_at"] = data.pop("last_contact_date")
+        if not data.get("created_at") and data.get("last_call_at"):
+            data["created_at"] = data["last_call_at"]
+        if not data.get("updated_at") and data.get("last_call_at"):
+            data["updated_at"] = data["last_call_at"]
+        super().__init__(**data)
+
+    @property
+    def customer_name(self) -> str:
+        """Backward compatible getter for caller name."""
+        return self.name
+
+    @property
+    def phone_number(self) -> str:
+        """Backward compatible getter for phone number."""
+        return self.phone
+
+    @property
+    def last_contact_date(self) -> str:
+        """Backward compatible getter for contact date."""
+        return self.last_call_at
 
 
 class CallIntent(StrEnum):
@@ -218,16 +271,58 @@ class CallIntent(StrEnum):
     INQUIRY = "Inquiry"
     COMPLAINT = "Complaint"
     RUNNING_LATE = "Running Late"
+    PRICING = "Pricing"
 
 
 class CallLog(BaseModel):
     """Audit log entry for Google Sheets 'Call Logs' tab."""
 
-    timestamp: str
-    caller_phone: str
-    caller_name: str
-    call_intent: CallIntent
-    outcome: str
-    needs_human_followup: bool = False
-    summary: str
-    vapi_call_id: str | None = None
+    call_id: str = Field(default="", description="Unique interaction identifier")
+    contact_id: str = Field(default="", description="Links the call to Contacts")
+    phone: str = Field(default="", description="Caller phone number")
+    started_at: str = Field(default="", description="Call start ISO timestamp")
+    channel: str = Field(default="chat", description="Interaction channel: chat or phone")
+    intent: str = Field(default="Inquiry", description="Customer intent category")
+    summary: str = Field(default="", description="Short summary of caller request")
+    outcome: str = Field(default="", description="Action taken or result")
+    appointment_id: str | None = Field(default=None, description="Calendar event ID")
+    handoff_required: bool = Field(default=False, description="Human intervention needed")
+    handoff_reason: str = Field(default="", description="Reason for escalation")
+    status: str = Field(default="completed", description="completed, unresolved, or failed")
+    caller_name: str = Field(default="", description="Caller name if known")
+    vapi_call_id: str | None = Field(default=None, description="Vapi call identifier")
+
+    def __init__(self, **data: Any) -> None:
+        # Support legacy aliases if passed directly
+        if "timestamp" in data and "started_at" not in data:
+            data["started_at"] = data.pop("timestamp")
+        if "caller_phone" in data and "phone" not in data:
+            data["phone"] = data.pop("caller_phone")
+        if "customer_name" in data and "caller_name" not in data:
+            data["caller_name"] = data.pop("customer_name")
+        if "call_intent" in data and "intent" not in data:
+            val = data.pop("call_intent")
+            data["intent"] = val.value if hasattr(val, "value") else str(val)
+        if "needs_human_followup" in data and "handoff_required" not in data:
+            data["handoff_required"] = data.pop("needs_human_followup")
+        super().__init__(**data)
+
+    @property
+    def timestamp(self) -> str:
+        """Backward compatible getter for started_at."""
+        return self.started_at
+
+    @property
+    def caller_phone(self) -> str:
+        """Backward compatible getter for phone."""
+        return self.phone
+
+    @property
+    def call_intent(self) -> str:
+        """Backward compatible getter for intent."""
+        return self.intent
+
+    @property
+    def needs_human_followup(self) -> bool:
+        """Backward compatible getter for handoff_required."""
+        return self.handoff_required

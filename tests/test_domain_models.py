@@ -3,7 +3,6 @@
 from datetime import datetime
 
 from cedar_lane_ai.domain import (
-    CallIntent,
     CallLog,
     Contact,
     ServiceType,
@@ -91,24 +90,42 @@ def test_shop_operating_hours_valid_and_buffer() -> None:
 
 
 def test_contact_and_call_log_schemas() -> None:
-    """Verify Pydantic models for customer records and call logs."""
+    """Verify Pydantic models for customer records and call logs with two-tab fields."""
     contact = Contact(
-        phone_number="+15551234567",
-        customer_name="Alice Smith",
-        vehicle_type="Tesla Model 3 (Sedan)",
-        last_contact_date="2026-10-08",
+        contact_id="con_001",
+        name="Alice Smith",
+        phone="+15551234567",
+        email="alice@example.com",
+        notes="Prefers afternoon slots",
+        created_at="2026-10-08T10:00:00Z",
+        updated_at="2026-10-08T10:00:00Z",
+        last_call_at="2026-10-08T10:00:00Z",
     )
-    assert contact.total_bookings == 1
-    assert contact.customer_name == "Alice Smith"
+    assert contact.contact_id == "con_001"
+    assert contact.name == "Alice Smith"
+    assert contact.customer_name == "Alice Smith"  # Backward compatibility
+    assert contact.phone == "+15551234567"
+    assert contact.phone_number == "+15551234567"  # Backward compatibility
+    assert contact.email == "alice@example.com"
+    assert contact.notes == "Prefers afternoon slots"
 
     log = CallLog(
-        timestamp="2026-10-08T10:00:00Z",
-        caller_phone="+15551234567",
-        caller_name="Alice Smith",
-        call_intent=CallIntent.BOOKING,
-        outcome="Booked Express Wash for 2026-10-12 at 10:00 AM",
-        needs_human_followup=False,
+        call_id="call_001",
+        contact_id="con_001",
+        phone="+15551234567",
+        started_at="2026-10-08T10:00:00Z",
+        channel="chat",
+        intent="Booking",
         summary="Customer booked standard appointment.",
+        outcome="Booked Express Wash for 2026-10-12 at 10:00 AM",
+        appointment_id="cal_evt_999",
+        handoff_required=False,
+        status="completed",
     )
-    assert log.needs_human_followup is False
-    assert log.call_intent == CallIntent.BOOKING
+    assert log.call_id == "call_001"
+    assert log.contact_id == "con_001"
+    assert log.channel == "chat"
+    assert log.handoff_required is False
+    assert log.needs_human_followup is False  # Backward compatibility
+    assert log.appointment_id == "cal_evt_999"
+    assert log.status == "completed"

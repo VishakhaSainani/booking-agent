@@ -13,30 +13,36 @@ from googleapiclient.discovery import build
 from cedar_lane_ai.adapters.in_memory_sheets import normalize_phone
 from cedar_lane_ai.adapters.sheets_base import SheetsAdapter
 from cedar_lane_ai.config import settings
-from cedar_lane_ai.domain import CallIntent, CallLog, Contact
+from cedar_lane_ai.domain import CallLog, Contact
 
 logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 CONTACTS_HEADER = [
-    "Phone Number",
-    "Customer Name",
-    "Vehicle Type",
-    "Total Bookings",
-    "Last Contact Date",
-    "Notes / Preferences",
+    "contact_id",
+    "name",
+    "phone",
+    "email",
+    "notes",
+    "created_at",
+    "updated_at",
+    "last_call_at",
 ]
 
 CALL_LOGS_HEADER = [
-    "Timestamp",
-    "Caller Phone",
-    "Caller Name",
-    "Call Intent",
-    "Outcome / Action Taken",
-    "Needs Human Follow-up?",
-    "Summary",
-    "Vapi Call ID",
+    "call_id",
+    "contact_id",
+    "phone",
+    "started_at",
+    "channel",
+    "intent",
+    "summary",
+    "outcome",
+    "appointment_id",
+    "handoff_required",
+    "handoff_reason",
+    "status",
 ]
 
 
@@ -70,13 +76,14 @@ class GoogleSheetsAdapter(SheetsAdapter):
             res_c = (
                 self.service.spreadsheets()
                 .values()
-                .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A1:F1")
+                .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A1:H1")
                 .execute()
             )
-            if not res_c.get("values"):
+            vals_c = res_c.get("values", [])
+            if not vals_c or vals_c[0] != CONTACTS_HEADER:
                 self.service.spreadsheets().values().update(
                     spreadsheetId=self.spreadsheet_id,
-                    range="Contacts!A1:F1",
+                    range="Contacts!A1:H1",
                     valueInputOption="RAW",
                     body={"values": [CONTACTS_HEADER]},
                 ).execute()
@@ -85,13 +92,14 @@ class GoogleSheetsAdapter(SheetsAdapter):
             res_l = (
                 self.service.spreadsheets()
                 .values()
-                .get(spreadsheetId=self.spreadsheet_id, range="Call Logs!A1:H1")
+                .get(spreadsheetId=self.spreadsheet_id, range="Call Logs!A1:L1")
                 .execute()
             )
-            if not res_l.get("values"):
+            vals_l = res_l.get("values", [])
+            if not vals_l or vals_l[0] != CALL_LOGS_HEADER:
                 self.service.spreadsheets().values().update(
                     spreadsheetId=self.spreadsheet_id,
-                    range="Call Logs!A1:H1",
+                    range="Call Logs!A1:L1",
                     valueInputOption="RAW",
                     body={"values": [CALL_LOGS_HEADER]},
                 ).execute()
@@ -102,80 +110,100 @@ class GoogleSheetsAdapter(SheetsAdapter):
         self,
         phone_number: str,
         customer_name: str,
-        vehicle_type: str,
+        vehicle_type: str = "",
         notes: str = "",
         is_booking: bool = False,
+        email: str = "",
     ) -> Contact:
         """Upsert row in the Contacts tab by matching phone number."""
         target_norm = normalize_phone(phone_number)
-        today_str = datetime.now().date().isoformat()
+        now_iso = datetime.now().isoformat(timespec="seconds")
 
         res = (
             self.service.spreadsheets()
             .values()
-            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:F")
+            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:H")
             .execute()
         )
         rows: list[list[Any]] = res.get("values", [])
 
-        # Check existing row
-        for idx, row in enumerate(rows[1:], start=2):  # 1-indexed, row 1 is header
-            if row and normalize_phone(str(row[0])) == target_norm:
-                existing_bookings = int(row[3]) if len(row) > 3 and str(row[3]).isdigit() else 0
-                updated_bookings = existing_bookings + (1 if is_booking else 0)
-                existing_notes = str(row[5]) if len(row) > 5 else ""
+        # Check existing row (row 1 is header)
+        for idx, row in enumerate(rows[1:], start=2):
+            if not row:
+                continue
+            # Check phone in column C (index 2) or fallback to column A (index 0)
+            row_phone = str(row[2]) if len(row) > 2 else str(row[0])
+            if normalize_phone(row_phone) == target_norm:
+                is_con = len(row) > 0 and str(row[0]).startswith("con_")
+                cid = str(row[0]) if is_con else f"con_{idx:03d}"
+                existing_notes = str(row[4]) if len(row) > 4 else ""
                 combined_notes = (
                     f"{existing_notes}; {notes}".strip("; ") if notes else existing_notes
                 )
+                created_at = str(row[5]) if len(row) > 5 else now_iso
+                existing_email = str(row[3]) if len(row) > 3 else ""
 
                 updated_row = [
+                    cid,
+                    customer_name or (str(row[1]) if len(row) > 1 else ""),
                     phone_number,
-                    customer_name or (row[1] if len(row) > 1 else ""),
-                    vehicle_type or (row[2] if len(row) > 2 else ""),
-                    updated_bookings,
-                    today_str,
+                    email or existing_email,
                     combined_notes,
+                    created_at,
+                    now_iso,
+                    now_iso,
                 ]
 
                 self.service.spreadsheets().values().update(
                     spreadsheetId=self.spreadsheet_id,
-                    range=f"Contacts!A{idx}:F{idx}",
+                    range=f"Contacts!A{idx}:H{idx}",
                     valueInputOption="RAW",
                     body={"values": [updated_row]},
                 ).execute()
 
                 return Contact(
-                    phone_number=phone_number,
-                    customer_name=str(updated_row[1]),
-                    vehicle_type=str(updated_row[2]),
-                    total_bookings=updated_bookings,
-                    last_contact_date=today_str,
+                    contact_id=cid,
+                    name=str(updated_row[1]),
+                    phone=phone_number,
+                    email=str(updated_row[3]),
                     notes=combined_notes,
+                    created_at=created_at,
+                    updated_at=now_iso,
+                    last_call_at=now_iso,
+                    vehicle_type=vehicle_type,
+                    total_bookings=1 if is_booking else 0,
                 )
 
         # Append new row
+        cid = f"con_{len(rows):03d}"
         new_row = [
-            phone_number,
+            cid,
             customer_name,
-            vehicle_type,
-            1 if is_booking else 0,
-            today_str,
+            phone_number,
+            email,
             notes,
+            now_iso,
+            now_iso,
+            now_iso,
         ]
         self.service.spreadsheets().values().append(
             spreadsheetId=self.spreadsheet_id,
-            range="Contacts!A:F",
+            range="Contacts!A:H",
             valueInputOption="RAW",
             body={"values": [new_row]},
         ).execute()
 
         return Contact(
-            phone_number=phone_number,
-            customer_name=customer_name,
+            contact_id=cid,
+            name=customer_name,
+            phone=phone_number,
+            email=email,
+            notes=notes,
+            created_at=now_iso,
+            updated_at=now_iso,
+            last_call_at=now_iso,
             vehicle_type=vehicle_type,
             total_bookings=1 if is_booking else 0,
-            last_contact_date=today_str,
-            notes=notes,
         )
 
     def get_contact(self, phone_number: str) -> Contact | None:
@@ -184,19 +212,24 @@ class GoogleSheetsAdapter(SheetsAdapter):
         res = (
             self.service.spreadsheets()
             .values()
-            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:F")
+            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:H")
             .execute()
         )
         rows: list[list[Any]] = res.get("values", [])
         for row in rows[1:]:
-            if row and normalize_phone(str(row[0])) == target_norm:
+            if not row:
+                continue
+            row_phone = str(row[2]) if len(row) > 2 else str(row[0])
+            if normalize_phone(row_phone) == target_norm:
                 return Contact(
-                    phone_number=str(row[0]),
-                    customer_name=str(row[1]) if len(row) > 1 else "",
-                    vehicle_type=str(row[2]) if len(row) > 2 else "",
-                    total_bookings=int(row[3]) if len(row) > 3 and str(row[3]).isdigit() else 0,
-                    last_contact_date=str(row[4]) if len(row) > 4 else "",
-                    notes=str(row[5]) if len(row) > 5 else "",
+                    contact_id=str(row[0]) if len(row) > 0 else "",
+                    name=str(row[1]) if len(row) > 1 else "",
+                    phone=str(row[2]) if len(row) > 2 else str(row[0]),
+                    email=str(row[3]) if len(row) > 3 else "",
+                    notes=str(row[4]) if len(row) > 4 else "",
+                    created_at=str(row[5]) if len(row) > 5 else "",
+                    updated_at=str(row[6]) if len(row) > 6 else "",
+                    last_call_at=str(row[7]) if len(row) > 7 else "",
                 )
         return None
 
@@ -205,39 +238,64 @@ class GoogleSheetsAdapter(SheetsAdapter):
         res = (
             self.service.spreadsheets()
             .values()
-            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:F")
+            .get(spreadsheetId=self.spreadsheet_id, range="Contacts!A:H")
             .execute()
         )
         contacts: list[Contact] = []
         for row in res.get("values", [])[1:]:
-            if row:
-                contacts.append(
-                    Contact(
-                        phone_number=str(row[0]),
-                        customer_name=str(row[1]) if len(row) > 1 else "",
-                        vehicle_type=str(row[2]) if len(row) > 2 else "",
-                        total_bookings=int(row[3]) if len(row) > 3 and str(row[3]).isdigit() else 0,
-                        last_contact_date=str(row[4]) if len(row) > 4 else "",
-                        notes=str(row[5]) if len(row) > 5 else "",
-                    )
+            if not row:
+                continue
+            contacts.append(
+                Contact(
+                    contact_id=str(row[0]) if len(row) > 0 else "",
+                    name=str(row[1]) if len(row) > 1 else "",
+                    phone=str(row[2]) if len(row) > 2 else str(row[0]),
+                    email=str(row[3]) if len(row) > 3 else "",
+                    notes=str(row[4]) if len(row) > 4 else "",
+                    created_at=str(row[5]) if len(row) > 5 else "",
+                    updated_at=str(row[6]) if len(row) > 6 else "",
+                    last_call_at=str(row[7]) if len(row) > 7 else "",
                 )
+            )
         return contacts
 
     def append_call_log(self, log: CallLog) -> None:
         """Append log entry to Call Logs tab."""
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        call_id = log.call_id or f"call_{datetime.now().strftime('%y%m%d%H%M%S')}"
+        started_at = log.started_at or now_iso
+
+        # Ensure contact_id is linked
+        cid = log.contact_id
+        if not cid and log.phone:
+            existing = self.get_contact(log.phone)
+            if existing:
+                cid = existing.contact_id
+            else:
+                created = self.upsert_contact(
+                    phone_number=log.phone,
+                    customer_name="",
+                    notes=f"Auto-created from interaction {log.intent}",
+                )
+                cid = created.contact_id
+
         row = [
-            log.timestamp,
-            log.caller_phone,
-            log.caller_name,
-            log.call_intent.value,
-            log.outcome,
-            "YES" if log.needs_human_followup else "NO",
+            call_id,
+            cid,
+            log.phone,
+            started_at,
+            log.channel,
+            log.intent,
             log.summary,
-            log.vapi_call_id or "",
+            log.outcome,
+            log.appointment_id or "",
+            "TRUE" if log.handoff_required else "FALSE",
+            log.handoff_reason,
+            log.status,
         ]
         self.service.spreadsheets().values().append(
             spreadsheetId=self.spreadsheet_id,
-            range="Call Logs!A:H",
+            range="Call Logs!A:L",
             valueInputOption="RAW",
             body={"values": [row]},
         ).execute()
@@ -247,7 +305,7 @@ class GoogleSheetsAdapter(SheetsAdapter):
         res = (
             self.service.spreadsheets()
             .values()
-            .get(spreadsheetId=self.spreadsheet_id, range="Call Logs!A:H")
+            .get(spreadsheetId=self.spreadsheet_id, range="Call Logs!A:L")
             .execute()
         )
         logs: list[CallLog] = []
@@ -256,14 +314,20 @@ class GoogleSheetsAdapter(SheetsAdapter):
                 continue
             logs.append(
                 CallLog(
-                    timestamp=str(row[0]),
-                    caller_phone=str(row[1]) if len(row) > 1 else "",
-                    caller_name=str(row[2]) if len(row) > 2 else "",
-                    call_intent=CallIntent(row[3]) if len(row) > 3 else CallIntent.INQUIRY,
-                    outcome=str(row[4]) if len(row) > 4 else "",
-                    needs_human_followup=(str(row[5]).upper() == "YES") if len(row) > 5 else False,
+                    call_id=str(row[0]) if len(row) > 0 else "",
+                    contact_id=str(row[1]) if len(row) > 1 else "",
+                    phone=str(row[2]) if len(row) > 2 else "",
+                    started_at=str(row[3]) if len(row) > 3 else "",
+                    channel=str(row[4]) if len(row) > 4 else "chat",
+                    intent=str(row[5]) if len(row) > 5 else "Inquiry",
                     summary=str(row[6]) if len(row) > 6 else "",
-                    vapi_call_id=str(row[7]) if len(row) > 7 and row[7] else None,
+                    outcome=str(row[7]) if len(row) > 7 else "",
+                    appointment_id=str(row[8]) if len(row) > 8 and row[8] else None,
+                    handoff_required=(
+                        (str(row[9]).upper() in ("TRUE", "YES")) if len(row) > 9 else False
+                    ),
+                    handoff_reason=str(row[10]) if len(row) > 10 else "",
+                    status=str(row[11]) if len(row) > 11 else "completed",
                 )
             )
         return list(reversed(logs[-limit:]))

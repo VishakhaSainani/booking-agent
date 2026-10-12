@@ -15,18 +15,19 @@ class SheetsAdapter(ABC):
         self,
         phone_number: str,
         customer_name: str,
-        vehicle_type: str,
+        vehicle_type: str = "",
         notes: str = "",
         is_booking: bool = False,
+        email: str = "",
     ) -> Contact:
         """Upsert customer record.
 
         If contact exists:
-          - Updates name/vehicle/notes if provided
-          - Updates last_contact_date to current date
+          - Updates name/email/vehicle/notes if provided
+          - Updates last_call_at to current timestamp
           - Increments total_bookings if is_booking is True
         If contact does not exist:
-          - Inserts new row with total_bookings = 1 (if booking) else 0.
+          - Inserts new row with contact_id, created_at, updated_at, last_call_at.
         """
 
     @abstractmethod

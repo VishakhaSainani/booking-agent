@@ -153,23 +153,30 @@ def book_appointment(
         )
 
         # 2. Upsert Customer Contact in Google Sheets
-        sheets.upsert_contact(
+        contact = sheets.upsert_contact(
             phone_number=phone_number,
             customer_name=customer_name,
             vehicle_type=vehicle_type,
+            notes=f"Booked {service.value} on {date} at {time}",
             is_booking=True,
         )
 
         # 3. Append Audit Log in Google Sheets
         price, _ = service.get_price(vehicle_type)
         log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=phone_number,
+            contact_id=contact.contact_id,
+            phone=phone_number,
             caller_name=customer_name,
-            call_intent=CallIntent.BOOKING,
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="chat",
+            intent=CallIntent.BOOKING.value,
             outcome=f"Booked {service.value} on {date} at {time} for ${price}",
-            needs_human_followup=False,
-            summary=f"Confirmed appointment for {customer_name} ({vehicle_type}).",
+            appointment_id=appointment.id,
+            handoff_required=False,
+            summary=(
+                f"Confirmed appointment for {customer_name} ({vehicle_type}) - {service.value}."
+            ),
+            status="completed",
         )
         sheets.append_call_log(log)
 
@@ -237,14 +244,20 @@ def reschedule_appointment(
         calendar.update_appointment_event(existing.id, new_start_dt, new_end_dt)
 
         # 4. Log Reschedule to Sheets
+        contact = sheets.get_contact(phone_number)
+        cid = contact.contact_id if contact else ""
         log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=phone_number,
+            contact_id=cid,
+            phone=phone_number,
             caller_name=customer_name or existing.customer_name,
-            call_intent=CallIntent.RESCHEDULE,
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="chat",
+            intent=CallIntent.RESCHEDULE.value,
             outcome=f"Rescheduled to {new_date} at {new_time}",
-            needs_human_followup=False,
+            appointment_id=existing.id,
+            handoff_required=False,
             summary=f"Shifted booking from {current_date} to {new_date} {new_time}.",
+            status="completed",
         )
         sheets.append_call_log(log)
 
@@ -281,14 +294,20 @@ def cancel_appointment(
         calendar.cancel_appointment_event(existing.id)
 
         # Audit log in sheets
+        contact = sheets.get_contact(phone_number)
+        cid = contact.contact_id if contact else ""
         log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=phone_number,
+            contact_id=cid,
+            phone=phone_number,
             caller_name=customer_name or existing.customer_name,
-            call_intent=CallIntent.CANCELLATION,
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="chat",
+            intent=CallIntent.CANCELLATION.value,
             outcome=f"Cancelled appointment on {date}. Reason: {reason}",
-            needs_human_followup=False,
-            summary=f"Cancelled appointment. Reason: {reason}",
+            appointment_id=existing.id,
+            handoff_required=False,
+            summary=f"Cancelled appointment on {date}. Reason: {reason}",
+            status="completed",
         )
         sheets.append_call_log(log)
 
@@ -311,14 +330,25 @@ def report_running_late(
     """Handle late customer arrival notification."""
     try:
         existing = calendar.find_appointment_by_phone(phone_number)
+        contact = sheets.get_contact(phone_number)
+        cid = contact.contact_id if contact else ""
+        ex_id = existing.id if existing else None
+
         log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=phone_number,
-            caller_name=customer_name or (existing.customer_name if existing else "Customer"),
-            call_intent=CallIntent.RUNNING_LATE,
+            contact_id=cid,
+            phone=phone_number,
+            caller_name=customer_name or (existing.customer_name if existing else ""),
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="chat",
+            intent=CallIntent.RUNNING_LATE.value,
             outcome=f"Reported {minutes_late} minutes late",
-            needs_human_followup=minutes_late > 15,
+            appointment_id=ex_id,
+            handoff_required=minutes_late > 15,
+            handoff_reason=(
+                "Late arrival exceeds 15-minute grace period" if minutes_late > 15 else ""
+            ),
             summary=f"Customer notified running late by {minutes_late} minutes.",
+            status="completed" if minutes_late <= 15 else "unresolved",
         )
         sheets.append_call_log(log)
 
@@ -361,7 +391,7 @@ def escalate_to_human(
             matched_intent = CallIntent.INQUIRY
 
         # Upsert contact
-        sheets.upsert_contact(
+        contact = sheets.upsert_contact(
             phone_number=phone_number,
             customer_name=customer_name,
             vehicle_type="Standard",
@@ -369,15 +399,20 @@ def escalate_to_human(
             is_booking=False,
         )
 
-        # Log with needs_human_followup=True
+        # Log with handoff_required=True and handoff_reason
         log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=phone_number,
+            contact_id=contact.contact_id,
+            phone=phone_number,
             caller_name=customer_name,
-            call_intent=matched_intent,
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="chat",
+            intent=matched_intent.value,
             outcome=f"Escalated to human manager: {reason}",
-            needs_human_followup=True,
+            appointment_id=None,
+            handoff_required=True,
+            handoff_reason=reason,
             summary=f"Manager follow-up required. Details: {details}",
+            status="unresolved",
         )
         sheets.append_call_log(log)
 

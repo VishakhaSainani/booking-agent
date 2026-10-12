@@ -104,14 +104,27 @@ async def vapi_webhook(payload: VapiWebhookPayload) -> dict[str, Any]:
             or "follow-up" in summary.lower()
         )
 
+        contact = sheets.upsert_contact(
+            phone_number=caller_phone,
+            customer_name=caller_name if caller_name != "Phone Caller" else "",
+            notes=f"Voice call interaction ({intent.value})",
+            is_booking=(intent == CallIntent.BOOKING),
+        )
+
         call_log = CallLog(
-            timestamp=datetime.now().isoformat(),
-            caller_phone=caller_phone,
+            call_id=call_id,
+            contact_id=contact.contact_id,
+            phone=caller_phone,
             caller_name=caller_name,
-            call_intent=intent,
+            started_at=datetime.now().isoformat(timespec="seconds"),
+            channel="phone",
+            intent=intent.value,
             outcome=f"Completed voice call ({duration}s)",
-            needs_human_followup=needs_human,
+            appointment_id=None,
+            handoff_required=needs_human,
+            handoff_reason="Customer complaint or requested manager" if needs_human else "",
             summary=summary,
+            status="completed" if not needs_human else "unresolved",
             vapi_call_id=call_id,
         )
         sheets.append_call_log(call_log)
