@@ -3,208 +3,204 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cedar Lane Auto Detailing — AI Receptionist</title>
+  <title>Cedar Lane Auto Detailing — Receptionist Test Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <!-- Vapi Web Voice SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cedar-green: #2E4A3B; --light-green: #DCE6DF; --bg: #EEF1EF;
+      --border: #D3DAD5; --amber: #B9792A; --text: #1C2821; --muted: #5B6A60;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Barlow', system-ui, -apple-system, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+    }
+    :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+    header {
+      background: var(--cedar-green); color: #fff; padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    header p { font-size: 0.8rem; color: #B7C8BE; }
+    .btn-new-call {
+      background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4);
+      padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-new-call:hover { background: rgba(255,255,255,0.1); border-color: #fff; }
+    main {
+      flex: 1; display: grid; grid-template-columns: 1fr 340px; gap: 14px;
+      padding: 14px 20px; overflow: hidden;
+    }
+    .panel {
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .messages-list {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .bubble-wrapper { display: flex; flex-direction: column; max-width: 82%; }
+    .bubble-wrapper.receptionist { align-self: flex-start; }
+    .bubble-wrapper.caller { align-self: flex-end; }
+    .bubble-label { font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+    .bubble-wrapper.caller .bubble-label { text-align: right; }
+    .bubble {
+      padding: 10px 14px; border-radius: 12px; font-size: 0.92rem;
+      line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+    }
+    .bubble-wrapper.receptionist .bubble { background: var(--light-green); color: var(--text); border-bottom-left-radius: 2px; }
+    .bubble-wrapper.caller .bubble { background: var(--cedar-green); color: #fff; border-bottom-right-radius: 2px; }
+    .bubble-wrapper.error .bubble { background: #FCE8E6; color: #A51D24; border: 1px solid #F5C6CB; }
+    .typing-dots { display: inline-flex; gap: 4px; padding: 4px 6px; }
+    .typing-dots span {
+      width: 6px; height: 6px; background: var(--muted); border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .typing-dots span { animation: none; opacity: 0.7; } }
+    .chips-bar {
+      padding: 8px 14px; border-top: 1px solid var(--border); display: flex;
+      gap: 6px; overflow-x: auto; white-space: nowrap; background: #FAFBFB;
+    }
+    .chip {
+      background: #fff; border: 1px solid var(--border); color: var(--text);
+      font-size: 0.76rem; padding: 4px 10px; border-radius: 14px; cursor: pointer; flex-shrink: 0;
+    }
+    .chip:hover { border-color: var(--amber); color: var(--amber); }
+    .input-bar {
+      padding: 10px 14px; border-top: 1px solid var(--border); display: flex;
+      gap: 8px; align-items: flex-end; background: #fff;
+    }
+    .input-bar textarea {
+      flex: 1; resize: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 10px; font-family: inherit; font-size: 0.9rem; line-height: 1.35;
+      max-height: 120px; min-height: 38px;
+    }
+    .btn-send {
+      background: var(--cedar-green); color: #fff; border: none; border-radius: 6px;
+      padding: 9px 18px; font-size: 0.88rem; font-weight: 600; cursor: pointer; height: 38px;
+    }
+    .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions-panel h2 { font-size: 0.95rem; font-weight: 700; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .actions-list { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .actions-empty { color: var(--muted); font-size: 0.82rem; font-style: italic; padding: 12px 0; }
+    .action-card { background: #FAFBFB; border: 1px solid var(--border); border-left: 4px solid var(--amber); border-radius: 4px; padding: 8px 10px; }
+    .action-title { font-weight: 700; font-size: 0.82rem; margin-bottom: 4px; }
+    .action-json { font-family: ui-monospace, monospace; font-size: 0.72rem; color: #3A4A3F; white-space: pre-wrap; word-break: break-all; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; grid-template-rows: 1fr 200px; padding: 10px; } }
+  </style>
 </head>
 <body>
-  <div class="app-layout">
-    <!-- Top Header -->
-    <header class="top-header">
-      <div class="brand">
-        <div class="brand-icon">✨</div>
-        <div>
-          <h1>Cedar Lane Auto Detailing</h1>
-          <p class="subtitle">Autonomous AI Receptionist & Shop Orchestrator</p>
-        </div>
+  <header>
+    <div><h1>Cedar Lane Auto Detailing</h1><p>Receptionist test console</p></div>
+    <button id="btn-new-call" class="btn-new-call">New call</button>
+  </header>
+  <main>
+    <section class="panel chat-pane" aria-label="Conversation with Receptionist">
+      <div id="messages-list" class="messages-list" aria-live="polite"></div>
+      <div class="chips-bar" aria-label="Example prompts">
+        <button class="chip" data-text="Is the 3:30 interior detail and wash on Thursday open?">Is the 3:30 interior detail and wash on Thursday open?</button>
+        <button class="chip" data-text="I need to move my appointment to Friday">I need to move my appointment to Friday</button>
+        <button class="chip" data-text="How much is a full detail for an SUV?">How much is a full detail for an SUV?</button>
+        <button class="chip" data-text="What are your hours?">What are your hours?</button>
+        <button class="chip" data-text="I'm running about 15 minutes late">I'm running about 15 minutes late</button>
+        <button class="chip" data-text="I was charged twice last week">I was charged twice last week</button>
       </div>
-      <div class="header-badges">
-        <div class="badge badge-hours">
-          <span class="status-dot"></span>
-          Mon–Sat: 8:00 AM – 6:00 PM | Sun: Closed
-        </div>
-        <div class="badge badge-sync">
-          <span class="sync-dot"></span>
-          Two-Way Live Sync
-        </div>
-        <button id="btn-voice-call" class="btn btn-voice">
-          <span class="voice-pulse"></span>
-          <span id="voice-btn-text">🎙️ Call Voice AI</span>
-        </button>
-        <button id="btn-seed-demo" class="btn btn-demo">⚡ Seed Conflict Demo</button>
-        <button id="btn-reset" class="btn btn-secondary">↺ Reset</button>
+      <form id="chat-form" class="input-bar">
+        <textarea id="chat-input" placeholder="Say something to the receptionist..." rows="1" aria-label="Caller message"></textarea>
+        <button type="submit" id="btn-send" class="btn-send">Send</button>
+      </form>
+    </section>
+    <aside class="panel actions-panel" aria-label="Logged Tool Actions">
+      <h2>What the agent did</h2>
+      <div id="actions-list" class="actions-list">
+        <div id="actions-empty" class="actions-empty">Calendar and Sheet actions show up here as the agent takes them.</div>
       </div>
-    </header>
+    </aside>
+  </main>
+  <script>
+    const API_URL = "/api/chat";
+    const GREETING = "Thanks for calling Cedar Lane Auto Detailing, how can I help?";
+    let sessionId = crypto.randomUUID(), isWaiting = false;
 
-    <!-- Main Container: Chat + Activity Monitor -->
-    <main class="main-content">
-      <!-- Left: Chat Panel -->
-      <section class="panel chat-panel">
-        <div class="panel-header">
-          <h2>Receptionist Chat Session</h2>
-          <div class="caller-id-wrapper">
-            <label for="caller-phone">Simulated Caller Phone:</label>
-            <input type="text" id="caller-phone" value="+1 (555) 234-5678" placeholder="Caller phone">
-          </div>
-        </div>
+    const messagesList = document.getElementById("messages-list"), actionsList = document.getElementById("actions-list");
+    const actionsEmpty = document.getElementById("actions-empty"), chatInput = document.getElementById("chat-input");
+    const chatForm = document.getElementById("chat-form"), btnSend = document.getElementById("btn-send");
 
-        <!-- Voice Call Active Banner (Visible during phone/web call) -->
-        <div class="voice-call-banner hidden" id="voice-call-banner">
-          <div class="voice-banner-left">
-            <div class="waveform">
-              <span class="bar bar-1"></span>
-              <span class="bar bar-2"></span>
-              <span class="bar bar-3"></span>
-              <span class="bar bar-4"></span>
-              <span class="bar bar-5"></span>
-            </div>
-            <div>
-              <div class="voice-status-title" id="voice-status-title">Live Voice Call Active</div>
-              <div class="voice-status-sub" id="voice-status-sub">Listening... Speak into your microphone</div>
-            </div>
-          </div>
-          <div class="voice-banner-right">
-            <span class="call-timer" id="call-timer">00:00</span>
-            <button id="btn-mute-voice-call" class="btn btn-icon" title="Mute Microphone">🎤</button>
-            <button id="btn-end-voice-call" class="btn btn-danger">End Call 🔴</button>
-          </div>
-        </div>
+    chatInput.addEventListener("input", () => {
+      chatInput.style.height = "auto";
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+    });
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatForm.requestSubmit(); }
+    });
 
-        <!-- Quick Scenarios -->
-        <div class="scenario-chips">
-          <span class="chip-label">Quick Prompts:</span>
-          <button class="chip" data-prompt="Can I book an Interior Detail for Thursday October 15th at 3:30 PM?">
-            ⚠️ Thursday 3:30 PM (Conflict Test)
-          </button>
-          <button class="chip" data-prompt="Can you book Jane Doe for an Express Wash & Vac on Friday October 16th at 10:00 AM for a Honda Civic Sedan?">
-            📅 Book Express Wash
-          </button>
-          <button class="chip" data-prompt="What are your prices and how should I prepare my car before dropping it off?">
-            ℹ️ Pricing & Prep Guidelines
-          </button>
-          <button class="chip" data-prompt="Hi, I have an appointment today and I'm running about 10 minutes late.">
-            ⏱️ Running 10 Mins Late
-          </button>
-          <button class="chip" data-prompt="I have an incorrect charge of $50 on my bill from last Friday that I want refunded!">
-            🚨 Disputed Charge Escalation
-          </button>
-        </div>
+    function appendMessage(role, text) {
+      const wrap = document.createElement("div"); wrap.className = `bubble-wrapper ${role}`;
+      const label = document.createElement("div"); label.className = "bubble-label";
+      label.textContent = role === "caller" ? "Caller" : role === "error" ? "System Error" : "Receptionist";
+      const bubble = document.createElement("div"); bubble.className = "bubble";
+      bubble.textContent = text; // Prevent XSS by using textContent
+      wrap.appendChild(label); wrap.appendChild(bubble);
+      messagesList.appendChild(wrap); messagesList.scrollTop = messagesList.scrollHeight;
+    }
 
-        <!-- Chat Stream -->
-        <div class="chat-messages" id="chat-messages">
-          <div class="message assistant-msg">
-            <div class="msg-avatar">🤖</div>
-            <div class="msg-content">
-              <p>Hello! Welcome to <strong>Cedar Lane Auto Detailing</strong>. I'm your AI Receptionist. How can I assist you today? I can check open appointment slots, book a detail, answer prep questions, or reschedule an existing service.</p>
-              <span class="msg-timestamp">Just now</span>
-            </div>
-          </div>
-        </div>
+    function showTyping() {
+      const wrap = document.createElement("div"); wrap.id = "typing-bubble"; wrap.className = "bubble-wrapper receptionist";
+      wrap.innerHTML = '<div class="bubble-label">Receptionist</div><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>';
+      messagesList.appendChild(wrap); messagesList.scrollTop = messagesList.scrollHeight;
+    }
 
-        <!-- Chat Input -->
-        <form class="chat-input-bar" id="chat-form">
-          <input type="text" id="chat-input" placeholder="Type a message or inquiry..." autocomplete="off">
-          <button type="submit" id="btn-send" class="btn btn-primary">
-            <span>Send</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          </button>
-        </form>
-      </section>
+    function logAction(tool, input, result) {
+      if (actionsEmpty) actionsEmpty.style.display = "none";
+      const card = document.createElement("div"); card.className = "action-card";
+      const title = document.createElement("div"); title.className = "action-title"; title.textContent = tool;
+      const body = document.createElement("div"); body.className = "action-json";
+      body.textContent = `in: ${JSON.stringify(input || {})}\nout: ${JSON.stringify(result || {})}`;
+      card.appendChild(title); card.appendChild(body);
+      actionsList.appendChild(card); actionsList.scrollTop = actionsList.scrollHeight;
+    }
 
-      <!-- Right: Real-time Activity Sidebar -->
-      <section class="panel monitor-panel">
-        <div class="panel-header monitor-header">
-          <div class="tabs-nav">
-            <button class="tab-btn active" data-tab="tab-tools">⚡ Live Tool Calls</button>
-            <button class="tab-btn" data-tab="tab-calendar">📅 Calendar State</button>
-            <button class="tab-btn" data-tab="tab-sheets">📊 Google Sheets Sync</button>
-          </div>
-          <div class="date-picker-wrap">
-            <label for="calendar-date">Date:</label>
-            <input type="date" id="calendar-date" value="2026-10-15">
-          </div>
-        </div>
+    async function sendMessage(text) {
+      if (!text || isWaiting) return;
+      isWaiting = true; btnSend.disabled = true;
+      appendMessage("caller", text); showTyping();
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: text })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        document.getElementById("typing-bubble")?.remove();
+        appendMessage("receptionist", data.reply || "I'm sorry, I couldn't process that.");
+        (data.actions || data.tool_events || []).forEach(a => logAction(a.tool || a.tool_name || "action", a.input || a.arguments, a.result));
+      } catch (err) {
+        document.getElementById("typing-bubble")?.remove();
+        appendMessage("error", `Couldn't reach the agent at ${API_URL}: ${err.message}`);
+      } finally {
+        isWaiting = false; btnSend.disabled = false; chatInput.focus();
+      }
+    }
 
-        <!-- Tab 1: Live Tool Execution Stream -->
-        <div class="tab-content active" id="tab-tools">
-          <div class="tools-stream" id="tools-stream">
-            <div class="empty-state">
-              <span class="empty-icon">⚡</span>
-              <p>No tools executed yet. Interact with the receptionist to observe real-time tool calls.</p>
-            </div>
-          </div>
-        </div>
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault(); const t = chatInput.value.trim(); if (!t) return;
+      chatInput.value = ""; chatInput.style.height = "auto"; sendMessage(t);
+    });
+    document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => sendMessage(c.dataset.text)));
 
-        <!-- Tab 2: Calendar Schedule -->
-        <div class="tab-content" id="tab-calendar">
-          <div class="calendar-summary" id="calendar-summary">
-            <h3>Scheduled Appointments (<span id="calendar-date-label">2026-10-15</span>)</h3>
-            <div class="appointment-cards" id="appointment-cards">
-              <!-- Dynamically populated -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 3: Sheets Sync -->
-        <div class="tab-content" id="tab-sheets">
-          <div class="sheets-view">
-            <div class="sheets-section">
-              <div class="sheets-section-header">
-                <h3>Google Sheets: <code>Contacts</code> Directory</h3>
-                <span class="count-tag" id="contacts-count">0 contacts</span>
-              </div>
-              <div class="table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Phone</th>
-                      <th>Customer Name</th>
-                      <th>Vehicle</th>
-                      <th>Bookings</th>
-                      <th>Last Contact</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody id="contacts-table-body">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="sheets-section">
-              <div class="sheets-section-header">
-                <h3>Google Sheets: <code>Call Logs</code> Audit Trail</h3>
-                <span class="count-tag" id="logs-count">0 entries</span>
-              </div>
-              <div class="table-container">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Caller</th>
-                      <th>Intent</th>
-                      <th>Outcome</th>
-                      <th>Follow-Up?</th>
-                      <th>Summary</th>
-                    </tr>
-                  </thead>
-                  <tbody id="logs-table-body">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script src="app.js"></script>
+    function startNewCall() {
+      sessionId = crypto.randomUUID(); messagesList.innerHTML = ""; actionsList.innerHTML = "";
+      if (actionsEmpty) { actionsEmpty.style.display = "block"; actionsList.appendChild(actionsEmpty); }
+      appendMessage("receptionist", GREETING);
+      chatInput.value = ""; chatInput.style.height = "auto"; chatInput.focus();
+    }
+    document.getElementById("btn-new-call").addEventListener("click", startNewCall);
+    startNewCall();
+  </script>
 </body>
 </html>

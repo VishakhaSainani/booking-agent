@@ -42,10 +42,19 @@ sheets_adapter = get_sheets_adapter()
 agent = ReceptionistAgent(calendar=calendar_adapter, sheets=sheets_adapter)
 
 
+class ActionItem(BaseModel):
+    """Normalized tool action item."""
+
+    tool: str
+    input: Any = None
+    result: Any = None
+
+
 class ChatRequest(BaseModel):
     """Payload for conversational turn."""
 
     message: str = Field(..., description="Caller's text message")
+    session_id: str | None = Field(default=None, description="Optional conversation session ID")
     phone: str = Field(default="+1 (555) 234-5678", description="Caller phone number")
     history: list[dict[str, Any]] = Field(default_factory=list, description="Prior turn history")
 
@@ -54,8 +63,12 @@ class ChatResponse(BaseModel):
     """Response containing assistant text and executed tool events."""
 
     reply: str
-    history: list[dict[str, Any]]
-    tool_events: list[dict[str, Any]]
+    history: list[dict[str, Any]] = Field(default_factory=list)
+    tool_events: list[dict[str, Any]] = Field(default_factory=list)
+    actions: list[ActionItem] = Field(default_factory=list)
+
+
+session_histories: dict[str, list[dict[str, Any]]] = {}
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -66,14 +79,33 @@ async def chat_endpoint(payload: ChatRequest) -> ChatResponse:
     if payload.phone and payload.phone not in augmented_message:
         augmented_message = f"{payload.message} (My phone number is {payload.phone})"
 
+    # Retrieve prior history from session_id or explicit payload history
+    prior_history = payload.history
+    if not prior_history and payload.session_id:
+        prior_history = session_histories.get(payload.session_id, [])
+
     reply, updated_history, tool_events = agent.process_turn(
         user_message=augmented_message,
-        conversation_history=payload.history,
+        conversation_history=prior_history,
     )
+
+    if payload.session_id:
+        session_histories[payload.session_id] = updated_history
+
+    actions = [
+        ActionItem(
+            tool=ev.get("tool_name", ""),
+            input=ev.get("arguments"),
+            result=ev.get("result"),
+        )
+        for ev in tool_events
+    ]
+
     return ChatResponse(
         reply=reply,
         history=updated_history,
         tool_events=tool_events,
+        actions=actions,
     )
 
 
