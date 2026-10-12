@@ -24,6 +24,14 @@ fi
 PORT=$(grep "^PORT=" .env | cut -d '=' -f2 | tr -d ' ' || echo "8008")
 PORT="${PORT:-8008}"
 
+# Clean up any stale process occupying the port
+STALE_PID=$(lsof -ti :"$PORT" 2>/dev/null || true)
+if [ -n "$STALE_PID" ]; then
+    echo "Clearing existing process on port $PORT (PID $STALE_PID)..."
+    kill -9 $STALE_PID 2>/dev/null || true
+    sleep 0.5
+fi
+
 echo "========================================================================"
 echo "✨ Starting Cedar Lane Auto Detailing AI Receptionist Server..."
 echo "📍 Web Dashboard & Chat: http://localhost:$PORT"

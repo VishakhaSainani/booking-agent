@@ -1,5 +1,8 @@
 """Unit tests for agent tools and conversational flow."""
 
+import json
+from unittest.mock import MagicMock
+
 from cedar_lane_ai.adapters import InMemoryCalendarAdapter, InMemorySheetsAdapter
 from cedar_lane_ai.services import (
     ReceptionistAgent,
@@ -7,6 +10,7 @@ from cedar_lane_ai.services import (
     cancel_appointment,
     check_availability,
     escalate_to_human,
+    get_groq_tools_schema,
     report_running_late,
     reschedule_appointment,
 )
@@ -195,3 +199,83 @@ def test_receptionist_agent_offline_turn() -> None:
     assert "manager" in reply3.lower()
     assert len(events) == 1
     assert events[0]["tool_name"] == "escalate_to_human"
+
+
+def test_groq_tools_schema_format() -> None:
+    """Verify get_groq_tools_schema produces standard OpenAI/Groq function calling schema."""
+    schemas = get_groq_tools_schema()
+    assert len(schemas) == 6
+    for s in schemas:
+        assert s["type"] == "function"
+        assert "name" in s["function"]
+        assert "description" in s["function"]
+        assert "parameters" in s["function"]
+        assert s["function"]["parameters"]["type"] == "object"
+        assert "properties" in s["function"]["parameters"]
+
+
+def test_receptionist_agent_groq_mock() -> None:
+    """Verify ReceptionistAgent executes tool calls via Groq mock client without live API."""
+    mock_client = MagicMock()
+    # Step 1 response: model requests check_availability
+    tool_call = MagicMock()
+    tool_call.id = "call_123"
+    tool_call.function.name = "check_availability"
+    tool_call.function.arguments = json.dumps(
+        {
+            "date": "2026-10-15",
+            "time": "10:00 AM",
+            "service_type": "Express Wash",
+        }
+    )
+
+    msg_with_call = MagicMock()
+    msg_with_call.tool_calls = [tool_call]
+    msg_with_call.content = None
+
+    resp1 = MagicMock()
+    resp1.choices = [MagicMock(message=msg_with_call)]
+
+    # Step 2 response: model final answer
+    msg_final = MagicMock()
+    msg_final.tool_calls = None
+    msg_final.content = "Thursday at 10:00 AM is available for an Express Wash!"
+
+    resp2 = MagicMock()
+    resp2.choices = [MagicMock(message=msg_final)]
+
+    mock_client.chat.completions.create.side_effect = [resp1, resp2]
+
+    cal = InMemoryCalendarAdapter()
+    sheets = InMemorySheetsAdapter()
+    agent = ReceptionistAgent(calendar=cal, sheets=sheets, groq_client=mock_client)
+
+    reply, history, events = agent.process_turn("Is Thursday 10am open for express wash?")
+    assert "Thursday at 10:00 AM is available" in reply
+    assert len(events) == 1
+    assert events[0]["tool_name"] == "check_availability"
+    assert events[0]["result"]["available"] is True
+
+
+def test_failed_generation_extraction_and_recovery() -> None:
+    """Verify agent catches Groq tool_use_failed errors and recovers smoothly."""
+    error_payload = (
+        "Error code: 400 - {'error': {'message': 'Tool choice is none, but model called a tool', "
+        "'type': 'invalid_request_error', 'code': 'tool_use_failed', "
+        "'failed_generation': '{\"name\": \"book_appointment\", \"arguments\": "
+        "{\"name\":\"Vishakha\",\"phone\":\"+1 (555) 234-5678\",\"vehicle\":\"Sedan\","
+        "\"service\":\"Express Wash & Vac\",\"date\":\"2026-10-14\",\"time\":\"3:00 PM\"}}'}}"
+    )
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = RuntimeError(error_payload)
+
+    cal = InMemoryCalendarAdapter()
+    sheets = InMemorySheetsAdapter()
+    agent = ReceptionistAgent(calendar=cal, sheets=sheets, groq_client=mock_client)
+
+    reply, history, events = agent.process_turn("Book an express wash for Vishakha")
+    assert len(events) == 1
+    assert events[0]["tool_name"] == "book_appointment"
+    assert events[0]["result"]["success"] is True
+    assert "booked, Vishakha" in reply
+    assert len(cal.list_day_events("2026-10-14")) == 1

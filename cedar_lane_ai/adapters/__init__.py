@@ -36,7 +36,9 @@ def get_calendar_adapter(force_fresh: bool = False) -> CalendarAdapter:
 
     try:
         logger.info("Attempting to initialize GoogleCalendarAdapter...")
-        _CALENDAR_SINGLETON = GoogleCalendarAdapter()
+        adapter = GoogleCalendarAdapter()
+        adapter.service.events().list(calendarId=adapter.calendar_id, maxResults=1).execute()
+        _CALENDAR_SINGLETON = adapter
         return _CALENDAR_SINGLETON
     except Exception as exc:  # noqa: BLE001
         logger.warning(

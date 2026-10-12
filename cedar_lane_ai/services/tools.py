@@ -526,6 +526,35 @@ GEMINI_TOOLS_SCHEMA = [
 ]
 
 
+def get_groq_tools_schema() -> list[dict[str, Any]]:
+    """Convert tool declarations into OpenAI/Groq standard function calling schema."""
+    groq_tools: list[dict[str, Any]] = []
+    for tool in GEMINI_TOOLS_SCHEMA:
+        props: dict[str, Any] = {}
+        for prop_name, prop_spec in tool["parameters"]["properties"].items():
+            raw_type = prop_spec.get("type", "STRING").lower()
+            schema_type = "integer" if raw_type in ("integer", "int") else "string"
+            props[prop_name] = {
+                "type": schema_type,
+                "description": prop_spec.get("description", ""),
+            }
+        groq_tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "parameters": {
+                        "type": "object",
+                        "properties": props,
+                        "required": tool["parameters"].get("required", []),
+                    },
+                },
+            }
+        )
+    return groq_tools
+
+
 def execute_tool(
     tool_name: str,
     arguments: dict[str, Any],
@@ -539,25 +568,25 @@ def execute_tool(
                 calendar=calendar,
                 date=arguments.get("date", ""),
                 time=arguments.get("time", ""),
-                service_type=arguments.get("service_type", ""),
+                service_type=arguments.get("service_type") or arguments.get("service", ""),
             )
         case "book_appointment":
             return book_appointment(
                 calendar=calendar,
                 sheets=sheets,
-                customer_name=arguments.get("customer_name", ""),
-                phone_number=arguments.get("phone_number", ""),
+                customer_name=arguments.get("customer_name") or arguments.get("name", ""),
+                phone_number=arguments.get("phone_number") or arguments.get("phone", ""),
                 date=arguments.get("date", ""),
                 time=arguments.get("time", ""),
-                service_type=arguments.get("service_type", ""),
-                vehicle_type=arguments.get("vehicle_type", ""),
+                service_type=arguments.get("service_type") or arguments.get("service", ""),
+                vehicle_type=arguments.get("vehicle_type") or arguments.get("vehicle", ""),
             )
         case "reschedule_appointment":
             return reschedule_appointment(
                 calendar=calendar,
                 sheets=sheets,
-                customer_name=arguments.get("customer_name", ""),
-                phone_number=arguments.get("phone_number", ""),
+                customer_name=arguments.get("customer_name") or arguments.get("name", ""),
+                phone_number=arguments.get("phone_number") or arguments.get("phone", ""),
                 current_date=arguments.get("current_date", ""),
                 new_date=arguments.get("new_date", ""),
                 new_time=arguments.get("new_time", ""),
@@ -566,8 +595,8 @@ def execute_tool(
             return cancel_appointment(
                 calendar=calendar,
                 sheets=sheets,
-                customer_name=arguments.get("customer_name", ""),
-                phone_number=arguments.get("phone_number", ""),
+                customer_name=arguments.get("customer_name") or arguments.get("name", ""),
+                phone_number=arguments.get("phone_number") or arguments.get("phone", ""),
                 date=arguments.get("date", ""),
                 reason=arguments.get("reason", "Customer request"),
             )
@@ -575,15 +604,15 @@ def execute_tool(
             return report_running_late(
                 calendar=calendar,
                 sheets=sheets,
-                customer_name=arguments.get("customer_name", ""),
-                phone_number=arguments.get("phone_number", ""),
+                customer_name=arguments.get("customer_name") or arguments.get("name", ""),
+                phone_number=arguments.get("phone_number") or arguments.get("phone", ""),
                 minutes_late=int(arguments.get("minutes_late", 0)),
             )
         case "escalate_to_human":
             return escalate_to_human(
                 sheets=sheets,
-                customer_name=arguments.get("customer_name", ""),
-                phone_number=arguments.get("phone_number", ""),
+                customer_name=arguments.get("customer_name") or arguments.get("name", ""),
+                phone_number=arguments.get("phone_number") or arguments.get("phone", ""),
                 reason=arguments.get("reason", EscalationReason.CUSTOMER_REQUEST.value),
                 details=arguments.get("details", ""),
             )

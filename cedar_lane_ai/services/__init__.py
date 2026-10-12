@@ -9,6 +9,7 @@ from cedar_lane_ai.services.tools import (
     check_availability,
     escalate_to_human,
     execute_tool,
+    get_groq_tools_schema,
     report_running_late,
     reschedule_appointment,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "check_availability",
     "escalate_to_human",
     "execute_tool",
+    "get_groq_tools_schema",
     "report_running_late",
     "reschedule_appointment",
 ]

@@ -6,7 +6,7 @@ from `.env` or system environment.
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +19,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # LLM Settings (Google Gemini)
+    # LLM Settings (Groq & Google Gemini)
+    groq_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("groq_api_key", "groq", "GROQ_API_KEY"),
+        description="Groq API key for ultra-fast LPU inference",
+    )
+    groq_model: str = Field(
+        default="openai/gpt-oss-120b",
+        validation_alias=AliasChoices("groq_model", "GROQ_MODEL"),
+        description="Groq model identifier",
+    )
+    llm_provider: str = Field(
+        default="groq",
+        validation_alias=AliasChoices("llm_provider", "LLM_PROVIDER"),
+        description="Primary LLM provider ('groq' or 'gemini')",
+    )
     gemini_api_key: str = Field(
         default="",
         description="Google Gemini API key for LLM tool calling",

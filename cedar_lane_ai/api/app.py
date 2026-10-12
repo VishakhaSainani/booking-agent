@@ -37,8 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-calendar_adapter = get_calendar_adapter()
-sheets_adapter = get_sheets_adapter()
+calendar_adapter = get_calendar_adapter(force_fresh=True)
+sheets_adapter = get_sheets_adapter(force_fresh=True)
 agent = ReceptionistAgent(calendar=calendar_adapter, sheets=sheets_adapter)
 
 
